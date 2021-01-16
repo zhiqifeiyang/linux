@@ -1,0 +1,12 @@
+【使用dd命令增加linux swap分区大小】
+    *不用磁盘分区的方式增加swap分区的方式
+          dd if=/dev/zero of=/opt/swap bs=1M count=2048
+    *然后使用mkswap命令将其格式化：
+          mkswap /opt/swap
+    *使用swapon命令挂载其：
+          swapon /opt/swap
+    
+
+
+
+
