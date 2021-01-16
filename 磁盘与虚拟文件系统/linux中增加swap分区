@@ -17,6 +17,24 @@
 内容，如同可以在/opt/swap中写入数据的，你懂了吗？
     
 
+【创建磁盘分区及swap】
 
+
+
+
+
+
+
+
+将磁盘变化写入内核
+
+若fdisk -l /dev/sdb没有显示创建的分区，则说明磁盘的改变没有写入内核，使用partx -a 或partprobe命令读入内核即可，若如上图新建的分区显示出来则可以跳过此步
+partx -a /dev/sdb       Centos 6使用
+partprobe /dev/sdb      Centos 5/7使用
+
+作者：JevonWei
+链接：https://www.jianshu.com/p/6b84c451ca19
+来源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 
 
