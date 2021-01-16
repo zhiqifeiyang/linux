@@ -5,6 +5,16 @@
           mkswap /opt/swap
     *使用swapon命令挂载其：
           swapon /opt/swap
+    *最后用free -m可查看swap分区的情况：
+          [root@kVM202223408-0 root]# free -m
+                  total        used        free      shared  buff/cache   available
+          Mem:    15782        6186        2496          19        7099        9446
+          Swap:   2047           0         2047   ---->(新增的swap分区)
+          
+原理：
+     Linux中皆是文件，swap对于linux系统来说也是一个文件，/opt/swap对于linux系统来说也是一个文件，
+这样概念就对等了。实际上这些文件就像一个笔记本，它是一个实体也是一个载体，我们是可以在笔记本中记录
+内容，如同可以在/opt/swap中写入数据的，你懂了吗？
     
 
 
