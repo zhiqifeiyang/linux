@@ -1,1 +1,7 @@
-磁盘mount相关问题汇总
+【当umount不成功时：Device or resource busy】
+     sudo umount /dev/shm 
+     erroe: cannot umount '/dev/shm' to '/dev/shmshm': Device or resource busy
+ <处理办法>：
+     lsof | grep /dev/shm
+     fuser -km /dev/shm
+     umount /dev/shm
