@@ -1,0 +1,3 @@
+1 > jenkins用户下的公钥，放在github的ssh key设置项中
+2 > 用jenkins用户clone,修改代码（使用ssh方式clone）
+3 > 使用jenkins用户git push代码
