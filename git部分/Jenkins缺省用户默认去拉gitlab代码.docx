@@ -1,0 +1,49 @@
+Jenkins缺省用户默认去拉gitlab代码（非常重要）
+【说明】：
+    Jenkins默认run user是jenkins这个用户
+Jenkins操作gitlab需要权限，为了不涉及其他人的权限，默认可以使用jenkins缺省用户（设置权限）进行对gitlab操作
+【设置】：
+   需要将jenkins用户的私钥，复制到gitlab仓库ssh key设置项中。
+A）默认jenkins的信息（无登录权限）：
+   jenkins:x:995:991:Jenkins Automation Server:/var/lib/jenkins:/bin/falsa （没有登录权限）
+B）给jenkins添加登录权限：
+   usermod -s /bin/bash Jenkins
+   grep "jenkins" /etc/passwd
+jenkins:x:995:991:Jenkins Automation Server:/var/lib/jenkins:/bin/bash
+C）为jenkins设置ssh key:
+   echo "123456"|passwd --stdin Jenkins
+   su – Jenkins
+  -bash-4.2$ ssh-keygen -t rsa
+  
+Generating public/private rsa key pair. 
+Enter file in which to save the key (/var/lib/jenkins/.ssh/id_rsa):  
+Enter passphrase (empty for no passphrase):  
+Enter same passphrase again:  
+Your identification has been saved in /var/lib/jenkins/.ssh/id_rsa. 
+Your public key has been saved in /var/lib/jenkins/.ssh/id_rsa.pub. 
+The key fingerprint is: 
+c9:d3:dc:75:ce:a6:98:05:d7:9e:06:e7:42:60:1b:f0 jenkins@jenkins 
+The key's randomart image is: 
++--[ RSA 2048]----+ 
+|         ..+     | 
+|          o +  . | 
+|           E.oo.o| 
+|       . + ..++=.| 
+|        S o ...+=| 
+|         .   +oo | 
+|            o .  | 
+|                 | 
+|                 | 
++-----------------+ 
+
+D）将jenkins公钥复制到gitlab：
+   -bash-4.2$ cat /var/lib/jenkins/.ssh/id_rsa.pub
+ 
+现在就可以使用jenkins缺省用户，去git clone/git push代码了
+E）将jenkins用户重新取消登录权限（重新设置为/bin/falsa）
+   usermod -s /bin/falase jenkins
+
+【最后】：
+非jenkins用户操作gitlab：sudo -u Jenkins git command
+Jenkins用户操作gitlab：   git command
+
