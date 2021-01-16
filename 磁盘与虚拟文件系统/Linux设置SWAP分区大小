@@ -1,1 +1,386 @@
+【转自】
+https://blog.csdn.net/weixin_34274029/article/details/91639725?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.not_use_machine_learn_pai&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.not_use_machine_learn_pai
+
+Linux 系统如何设置SWAP大小相信很多人都有这个疑问，下面是官网推荐的设置方式，仅供大家参考：
+
+4G以内的物理内存，SWAP 设置为内存的2倍。
+4-8G的物理内存，SWAP 等于内存大小。
+8-64G 的物理内存，SWAP 设置为8G。
+64-256G物理内存，SWAP 设置为16G。
+
+实际上，系统中交换分区的大小并不取决于物理内存的量，而是取决于系统中内存的负荷，所以在安装系统时要根据具体的业务来设置SWAP的值。
+
+
+一．SWAP说明
+1.1 SWAP 概述
+
+    Swap分区，即交换区，当系统的物理内存不够用的时候，就需要将物理内存中的一部分空间释放出来，以供当前运行的程序使用。那些被释放的空间可能来自一些很长时间没有什么操作的程序，这些被释放的空间被临时保存到Swap空间中，等到那些程序要运行时，再从Swap中恢复保存的数据到内存中。这样，系统总是在物理内存不够时，才进行Swap交换。
+
+    其实，Swap的调整对Linux服务器，特别是Web服务器的性能至关重要。通过调整Swap，有时可以越过系统性能瓶颈，节省系统升级费用。这个是SWAP 交换分区的作用。 实际上，我们更关注的应该是SWAP分区的大小问题。 设置多大才是最优的。
+
+ 
+
+分配太多的Swap空间会浪费磁盘空间，而Swap空间太少，则系统会发生错误。一般来说可以按照如下规则设置swap大小：
+
+4G以内的物理内存，SWAP 设置为内存的2倍。
+
+4-8G的物理内存，SWAP 等于内存大小。
+
+8-64G 的物理内存，SWAP 设置为8G。
+
+64-256G物理内存，SWAP 设置为16G。
+
+ 
+
+实际上，系统中交换分区的大小并不取决于物理内存的量，而是取决于系统中内存的负荷，所以在安装系统时要根据具体的业务来设置SWAP的值。
+
+另外，Swap分区的数量对性能也有很大的影响。因为Swap交换的操作是磁盘IO的操作，如果有多个Swap交换区，Swap空间的分配会以轮流的方式操作于所有的Swap，这样会大大均衡IO的负载，加快Swap交换的速度。如果只有一个交换区，所有的交换操作会使交换区变得很忙，使系统大多数时间处于等待状态，效率很低。用性能监视工具就会发现，此时的CPU并不很忙，而系统却慢。这说明，瓶颈在IO上，依靠提高CPU的速度是解决不了问题的。
+
+
+
+1.2 系统在什么情况下才会使用SWAP？
+
+实际上，并不是等所有的物理内存都消耗完毕之后，才去使用swap的空间，什么时候使用是由swappiness 参数值控制。
+
+[root@qiangsh ~]# cat /proc/sys/vm/swappiness
+60
+该值默认值是60.
+
+swappiness=0的时候表示最大限度使用物理内存，然后才是 swap空间，
+
+swappiness＝100的时候表示积极的使用swap分区，并且把内存上的数据及时的搬运到swap空间里面。
+
+ 
+
+现在服务器的内存动不动就是上百G，所以我们可以把这个参数值设置的低一些，让操作系统尽可能的使用物理内存，降低系统对swap的使用，从而提高系统的性能。
+
+
+
+--临时性修改：
+
+[root@qiangsh ~]# sysctl vm.swappiness=10
+vm.swappiness = 10
+[root@qiangsh ~]# cat /proc/sys/vm/swappiness
+10
+这里我们的修改已经生效，但是如果我们重启了系统，又会变成60.
+
+ 
+
+--永久修改：
+
+在/etc/sysctl.conf 文件里添加如下参数：
+
+[root@qiangsh ~]# echo 'vm.swappiness=10' >>/etc/sysctl.conf
+保存，重启，就生效了。
+
+
+
+二．管理SWAP
+
+2.1 查看系统当前SWAP 空间大小 
+
+[root@qiangsh~]# free -m
+             total      used     free    shared    buffers     cached
+Mem:         1954       1923       31          0          21           1345
+-/+ buffers/cache:       555      1399
+Swap:        1999        21       1978
+注意：free命令默认单位为k, -m 单位为M。 我们这里的swap使用了21M的空间。
+
+ 
+
+2.2 系统性能监视
+
+Swap空间的分配固然很重要，而系统运行时的性能监控却更加有价值。通过性能监视工具，可以检查系统的各项性能指标，找到系统性能的瓶颈。本文只介绍一下在Solaris下和Swap相关的一些命令和用途。
+
+
+
+最常用的是Vmstat命令（在大多数Unix平台下都有这样一些命令），此命令可以查看大多数性能指标。
+
+# vmstat 3
+procs memory swap io system cpu
+r  b w swpd   free   buff  cache si  so  bi   bo  in  cs us  sy  id  
+0 0 0    0    93880  3304  19372 0   0   10   2   131 10 0   0   99  
+0 0 0    0    93880  3304  19372 0   0   0    0   109  8 0   0   100 
+…………
+命令说明：  
+
+vmstat 后面的参数指定了性能指标捕获的时间间隔。3表示每三秒钟捕获一次。第一行数据不用看，没有价值，它仅反映开机以来的平均性能。从第二行开始，反映每三秒钟之内的系统性能指标。这些性能指标中和Swap有关的包括以下几项： 
+
+procs下的w  
+
+它表示当前（三秒钟之内）需要释放内存、交换出去的进程数量。  
+
+memory下的swpd  
+
+它表示使用的Swap空间的大小。  
+
+Swap下的si，so  
+
+si表示当前（三秒钟之内）每秒交换回内存（Swap in）的总量，单位为kbytes；so表示当前（三秒钟之内）每秒交换出内存（Swap out）的总量，单位为kbytes。  
+
+以上的指标数量越大，表示系统越忙。这些指标所表现的系统繁忙程度，与系统具体的配置有关。系统管理员应该在平时系统正常运行时，记下这些指标的数值，在系统发生问题的时候，再进行比较，就会很快发现问题，并制定本系统正常运行的标准指标值，以供性能监控使用。  
+
+
+
+另外，使用Swapon-s也能简单地查看当前Swap资源的使用情况。例如：  
+
+[root@qiangsh ~]# swapon -s
+Filename                                Type            Size    Used   Priority
+/dev/sda2                               partition       2047992 22272   -1
+注意：swapon –s 等于 cat/proc/swaps
+
+能够方便地看出Swap空间的已用和未用资源的大小。  
+
+应该使Swap负载保持在30%以下，这样才能保证系统的良好性能。
+
+
+
+2.3 使用文件来作为SWAP 交换分区
+
+注意：阿里云默认在启动项里关闭了SWAP分区，在/etc/rc.d/rc.local文件里有一行 swapoff -a ，表示禁用swap。把这行删掉就好了。
+
+ 
+
+dd命令详解：
+
+dd：用指定大小的块拷贝一个文件，并在拷贝的同时进行指定的转换。
+
+注意：指定数字的地方若以下列字符结尾，则乘以相应的数字：b=512；c=1；k=1024；w=2
+
+DD命令的参数介绍：
+
+1. if=文件名：输入文件，缺省为标准输入。即指定源文件。< if=input file >
+2. of=文件名：输出文件，缺省为标准输出。即指定目的文件。< of=output file >
+3. ibs=bytes：一次读取bytes字节，即读入缓冲区的字节数，指定一个块大小为bytes字节。
+   obs=bytes：一次写入bytes字节，即写入缓冲区的字节数，指定一个块大小为bytes字节。
+   bs=bytes：同时设置读/写缓冲区的字节数（等于设置ibs和obs）
+4. cbs=bytes：一次转换bytes字节，即指定转换缓冲区大小。
+5. skip=blocks：跳过读入缓冲区开头的ibs*blocks块,从输入文件开头跳过blocks个块后再开始复制。
+6. seek=blocks：从输出文件开头跳过blocks个块后再开始复制。
+注意：通常只用当输出文件是磁盘或磁带时才有效，即备份到磁盘或磁带时才有效。
+7. count=blocks：仅拷贝blocks个块，块大小等于ibs指定的字节数。
+8. conv=conversion：用指定的参数转换文件。
+   ascii：转换ebcdic为ascii
+   ebcdic：转换ascii为ebcdic
+   ibm：转换ascii为alternate ebcdic
+   block：把每一行转换为长度为cbs，不足部分用空格填充
+   unblock：使每一行的长度都为cbs，不足部分用空格填充
+   lcase：把大写字符转换为小写字符
+   ucase：把小写字符转换为大写字符
+   swab：交换输入的每对字节
+   noerror：出错时不停止
+   notrunc：不截短输出文件
+   sync：将每个输入块填充到ibs个字节，不足部分用空（NUL）字符补齐。
+
+
+我们这里使用文件添加一个交换区，具体操作如下：
+
+--在根目录下生成一个文件：swap-file，大小1G，每个块1kb，其中的count等于想要的块的数量（bs*count=文件大小）：
+
+[root@qiangsh /]# cd /var/
+[root@qiangsh /]# dd if=/dev/zero of=/var/swapfile bs=1024 count=1000000
+--如果需要添加8G的SWAP分区，则获取2G的文件块：
+
+[root@qiangsh /]# dd if=/dev/zero of=/var/swapfile bs=1024 count=8000000
+[root@qiangsh /]# ls /var/
+account  cache  crash  cvs  db  empty  games  lib  local  lock  log  mail  nis  opt  preserve  run  spool  swapfile  tmp  yp
+
+
+
+--将生成的文件格式化成交换分区：
+
+[root@qiangsh /]# mkswap -f /var/swapfile
+mkswap: /var/swapfile: warning: don't erase bootbits sectors
+        on whole disk. Use -f to force.
+Setting up swapspace version 1, size = 8388604 KiB
+no label, UUID=ddcb4y34-c580-48f1-7i1c-de87a825ab65
+
+
+--启动swap分区并查看状态：
+
+[root@qiangsh /]# swapon /var/swapfile
+[root@qiangsh /]# swapon -s
+Filename				Type		Size	Used	Priority
+/var/swapfile                        file		8388600	0	-1
+但是这个只对当前有效，如果想下次重启系统后还继续有效，需要将配置写入到/etc/fstab文件中。
+
+在/etc/fstab文件中添加如下内容：
+
+UUID=ddcb4y34-c580-48f1-7i1c-de87a825ab65 swap swap defaults 0 0
+或者：
+/var/swapfile swap swap defaults 0 0
+
+
+--关闭swap分区并查看状态：
+
+[root@qiangsh /]# swapoff /var/swapfile
+
+
+错误：swapoff: /dev/dm-1: swapoff failed: Cannot allocate memory
+
+解决方法：
+
+[root@qiangsh ~]# swapon -s
+Filename                                Type                 Size         Used     Priority
+/dev/dm-1                              partition            3145724       1524700    -1
+ 
+[root@qiangsh ~]# swapoff /dev/dm-1
+swapoff: /dev/dm-1: swapoff failed: Cannot allocate memory
+ 
+[root@qiangsh home]# dd if=/dev/zero of=/home/swap bs=1024 count=512000
+512000+0 records in
+512000+0 records out
+524288000 bytes (524 MB) copied, 1.2637 s, 415 MB/s
+ 
+[root@qiangsh home]# mkswap /home/swap
+mkswap: /home/swap: warning: don't erase bootbits sectors
+        on whole disk. Use -f to force.
+Setting up swapspace version 1, size = 511996 KiB
+no label, UUID=155bb4be-29cb-4e95-9581-24e11be6188f
+ 
+[root@qiangsh home]# swapon /home/swap
+[root@qiangsh home]# free -m
+                    total       used       free     shared    buffers     cached
+Mem:                 3832       3550       282          0          4        166
+-/+ buffers/cache:   3378       453
+Swap:                3571       1495       2076
+ 
+[root@qiangsh home]# swapoff /dev/dm-1
+[root@qiangsh ~]# free -m
+                    total       used       free     shared    buffers     cached
+Mem:                 3832       3711        120          0          2         19
+-/+ buffers/cache:   3689       143
+Swap:                499        499          0
+ 
+[root@qiangsh home]# swapon /dev/dm-1
+[root@qiangsh home]# free -m
+                    total       used       free     shared    buffers     cached
+Mem:                3832       3717        114          0          1        25
+-/+ buffers/cache:  3691       140
+Swap:               3571       495         3076
+ 
+[root@qiangsh home]# swapoff /home/swap
+[root@qiangsh home]# free -m           
+                    total       used       free     shared    buffers     cached
+Mem:                3832       3725        106          0          0              15
+-/+ buffers/cache:  3710       122
+Swap:               3071       476         2595
+
+2.4 使用磁盘添加swap
+
+先划分一个1G的磁盘分区出来：
+
+[root@qiangsh /]# fdisk /dev/sdb
+…………
+Command (m for help): n
+Command action
+   e   extended
+   p   primary partition (1-4)
+p
+Partition number (1-4): 1
+First cylinder (1-652, default 1):
+Using default value 1
+Last cylinder, +cylinders or +size{K,M,G} (1-652,default 652): +1G
+ 
+Command (m for help): w
+…………
+ 
+[root@qiangsh /]# fdisk -l
+…………
+   DeviceBoot      Start         End      Blocks  Id  System
+/dev/sdb1               1         132    1060258+  83  Linux
+…………
+ ##注意这里fdisk ID的编号。 这里显示的83，它代表这个分区是ext的分区，这个是不能用来做swap的。
+
+ext的分区ID号：0x83　　　
+
+swap的分区ID号：0x82
+
+ 
+
+--将/dev/sdb1分区改成swap 分区：
+
+[root@qiangsh /]# fdisk /dev/sdb
+…………
+Command (m for help): t
+Selected partition 1
+Hex code (type L to list codes):82
+Changed system type of partition1 to 82 (Linux swap / Solaris)
+--注意这里更改磁盘分区的ID类型，如果不更在，在系统重启时会根据ID来判断磁盘的类型，那样在使用时就会出现错误。
+ 
+Command (m for help): w
+…………
+ 
+
+--格式化swap分区：
+
+[root@qiangsh /]# mkswap /dev/sdb1
+Setting up swapspace version 1, size = 1060252 KiB
+no label, UUID= bc913e6b-209a-49a7-b561-9b8c57294681
+ 
+[root@qiangsh /]# mkswap –L swap-disk/dev/sdc1
+
+一个设置了Lable，一个没设置。我们在添加/etc/fstab时，可是用LABLE名称，或者使用UUID来配置。 具体如上。
+
+Disk /dev/sdb: 5368 MB, 5368709120 bytes
+255 heads, 63 sectors/track, 652 cylinders
+Units = cylinders of 16065 * 512 = 8225280 bytes
+Sector size (logical/physical): 512 bytes / 512bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk identifier: 0x65edb587
+ 
+   DeviceBoot      Start         End      Blocks  Id  System
+/dev/sdb1               1         132    1060258+  82  Linux swap / Solaris
+ 
+ 
+Disk /dev/sdc: 5368 MB, 5368709120 bytes
+181 heads, 40 sectors/track, 1448 cylinders
+Units = cylinders of 7240 * 512 = 3706880 bytes
+Sector size (logical/physical): 512 bytes / 512bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk identifier: 0x00000000
+ 
+   DeviceBoot      Start         End      Blocks  Id  System
+/dev/sdc1               1         291    1053400   82  Linux swap / Solaris
+注意： 使用blkid 查看类型已经变成了swap：
+
+[root@qiangsh /]# blkid
+/dev/sda1: UUID="935f7fb2-2ef4-486f-ae4e-265eaf9f580f"TYPE="ext4"
+/dev/sdb1:UUID="bc913e6b-209a-49a7-b561-9b8c57294681" TYPE="swap"
+/dev/sdc1:LABEL="swap-disk"UUID="799b4379-ca59-4508-ad04-2d18847b3fd9" TYPE="swap"
+这里的类型已经改变，我们可以尝试手工的启动swap，这里可以直接启用swap。：
+
+[root@qiangsh /]# swapon /dev/sdc1
+[root@qiangsh /]# swapon -s
+Filename               Type        Size      Used   Priority
+/var/swapfile                        file		8388600    	0	-1
+/dev/sdb1              partition     060248         0    -2
+/dev/sdc1              partition     1053392        0    -3
+我们这里把/dev/dbb1和/dev/sdc1都添加/etc/fstab 文件， 添加内容如下：
+
+UUID=bc913e6b-209a-49a7-b561-9b8c57294681 swap swap defaults 0 0
+LABEL=swap-disk swap swap defaults 0 0
+
+
+2.5 SWAP 分区的删除
+
+
+1)使用Swapoff命令收回/dev/sdb1或者swap文件分区：
+
+[root@qiangsh /]# swapoff /dev/sdb1
+[root@qiangsh /]# swapoff /var/swapfile
+[root@qiangsh /]# swapon -s
+Filename               Type        Size      Used   Priority
+/dev/sdc1              partition     1053392        0    -3
+2)编辑/etc/fstab文件，删除对应的记录：  
+
+3)从文件系统中回收此文件。  
+#rm /var/swapfile 
+4)当然，如果此Swap空间不是一个文件，而是一个分区，则需创建一个新的文件系统，再挂接到原来的文件系统上。 
+
+
+
+注意：阿里云默认在启动项里关闭了SWAP分区，在/etc/rc.d/rc.local文件里有一行 swapoff -a ，表示禁用swap。把这行删掉就好了。
+
+转载于:https://blog.51cto.com/qiangsh/1785067
 
